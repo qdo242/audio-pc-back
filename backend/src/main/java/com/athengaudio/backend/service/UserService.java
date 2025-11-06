@@ -187,4 +187,57 @@ public class UserService {
         }
         return false;
     }
+
+    // Wishlist
+    public User addProductToWishlist(String userId, String productId) {
+        return userRepository.findById(userId).map(user -> {
+            List<String> wishlist = user.getWishlist();
+            if (wishlist == null) {
+                wishlist = new java.util.ArrayList<>();
+            }
+            if (!wishlist.contains(productId)) {
+                wishlist.add(productId);
+                user.setWishlist(wishlist);
+                user.setUpdatedAt(new Date());
+                userRepository.save(user);
+            }
+            return user;
+        }).orElse(null);
+    }
+
+    public User removeProductFromWishlist(String userId, String productId) {
+        return userRepository.findById(userId).map(user -> {
+            List<String> wishlist = user.getWishlist();
+            if (wishlist != null && wishlist.contains(productId)) {
+                wishlist.remove(productId);
+                user.setWishlist(wishlist);
+                user.setUpdatedAt(new Date());
+                userRepository.save(user);
+            }
+            return user;
+        }).orElse(null);
+    }
+
+    public List<String> getWishlist(String userId) {
+        return userRepository.findById(userId)
+                .map(User::getWishlist)
+                .orElse(java.util.Collections.emptyList());
+    }
+
+    public boolean changePassword(String userId, String currentPassword, String newPassword) {
+        Optional<User> userOpt = userRepository.findById(userId);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            // Kiểm tra mật khẩu cũ có khớp không
+            if (passwordEncoder.matches(currentPassword, user.getPassword())) {
+                // Mã hóa và đặt mật khẩu mới
+                user.setPassword(passwordEncoder.encode(newPassword));
+                user.setUpdatedAt(new Date());
+                userRepository.save(user);
+                return true;
+            }
+        }
+        // Trả về false nếu không tìm thấy user hoặc sai mật khẩu cũ
+        return false;
+    }
 }
