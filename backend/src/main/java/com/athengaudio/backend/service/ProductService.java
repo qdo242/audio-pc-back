@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.athengaudio.backend.model.Product;
+import com.athengaudio.backend.model.Review;
 import com.athengaudio.backend.repository.ProductRepository;
 
 @Service
@@ -126,22 +127,47 @@ public class ProductService {
                 .toList();
     }
 
-    public Product updateRating(String productId, Double newRating) {
+    // public Product updateRating(String productId, Double newRating) {
+    // return productRepository.findById(productId)
+    // .map(product -> {
+    // int currentReviewCount = product.getReviewCount();
+    // double currentRating = product.getRating();
+
+    // double newAverageRating = ((currentRating * currentReviewCount) + newRating)
+    // / (currentReviewCount + 1);
+
+    // product.setRating(newAverageRating);
+    // product.setReviewCount(currentReviewCount + 1);
+    // product.setUpdatedAt(new Date());
+
+    // return productRepository.save(product);
+    // })
+    // .orElse(null);
+    // }
+
+    public Product addReviewToProduct(String productId, Review review) {
         return productRepository.findById(productId)
                 .map(product -> {
-                    int currentReviewCount = product.getReviewCount();
-                    double currentRating = product.getRating();
+                    // 1. Thêm review mới vào danh sách
+                    if (review.getCreatedAt() == null) {
+                        review.setCreatedAt(new Date());
+                    }
+                    product.getReviews().add(0, review); // Thêm vào đầu danh sách
 
-                    double newAverageRating = ((currentRating * currentReviewCount) + newRating)
-                            / (currentReviewCount + 1);
+                    // 2. Tính toán lại rating trung bình
+                    int newReviewCount = product.getReviews().size();
+                    double totalRating = product.getReviews().stream()
+                            .mapToDouble(Review::getRating)
+                            .sum();
 
-                    product.setRating(newAverageRating);
-                    product.setReviewCount(currentReviewCount + 1);
+                    product.setRating(totalRating / newReviewCount);
+                    product.setReviewCount(newReviewCount);
                     product.setUpdatedAt(new Date());
 
+                    // 3. Lưu sản phẩm
                     return productRepository.save(product);
                 })
-                .orElse(null);
+                .orElse(null); // Trả về null nếu không tìm thấy sản phẩm
     }
 
     public Product updateStock(String productId, Integer newStock) {

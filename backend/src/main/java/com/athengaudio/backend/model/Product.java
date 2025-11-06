@@ -1,5 +1,6 @@
 package com.athengaudio.backend.model;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -47,4 +48,7 @@ public class Product {
     // Timestamps
     private Date createdAt;
     private Date updatedAt;
+
+    private List<Review> reviews = new ArrayList<>();
+
 }

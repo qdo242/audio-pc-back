@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.athengaudio.backend.model.Product;
+import com.athengaudio.backend.model.Review;
 import com.athengaudio.backend.service.ProductService;
 
 @RestController
@@ -203,22 +204,48 @@ public class ProductController {
         }
     }
 
-    @PutMapping("/{id}/rating")
-    public ResponseEntity<?> updateRating(@PathVariable String id, @RequestBody Map<String, Double> request) {
-        try {
-            Double newRating = request.get("rating");
-            if (newRating == null || newRating < 0 || newRating > 5) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Rating phải từ 0 đến 5"));
-            }
+    // @PutMapping("/{id}/rating")
+    // public ResponseEntity<?> updateRating(@PathVariable String id, @RequestBody
+    // Map<String, Double> request) {
+    // try {
+    // Double newRating = request.get("rating");
+    // if (newRating == null || newRating < 0 || newRating > 5) {
+    // return ResponseEntity.badRequest().body(Map.of(
+    // "success", false,
+    // "message", "Rating phải từ 0 đến 5"));
+    // }
 
-            Product updatedProduct = productService.updateRating(id, newRating);
+    // Product updatedProduct = productService.updateRating(id, newRating);
+    // if (updatedProduct != null) {
+    // return ResponseEntity.ok(Map.of(
+    // "success", true,
+    // "product", updatedProduct,
+    // "message", "Cập nhật rating thành công"));
+    // } else {
+    // return ResponseEntity.badRequest().body(Map.of(
+    // "success", false,
+    // "message", "Không tìm thấy sản phẩm"));
+    // }
+    // } catch (Exception e) {
+    // return ResponseEntity.badRequest().body(Map.of(
+    // "success", false,
+    // "message", "Lỗi khi cập nhật rating: " + e.getMessage()));
+    // }
+    // }
+    @PostMapping("/{id}/reviews")
+    public ResponseEntity<?> addReview(
+            @PathVariable String id,
+            @RequestBody Review review // Nhận Review object từ body
+    ) {
+        try {
+            // Gọi service mới
+            Product updatedProduct = productService.addReviewToProduct(id, review);
+
             if (updatedProduct != null) {
                 return ResponseEntity.ok(Map.of(
                         "success", true,
-                        "product", updatedProduct,
-                        "message", "Cập nhật rating thành công"));
+                        "product", updatedProduct, // Trả về product đã cập nhật
+                        "message", "Đã thêm đánh giá thành công"));
             } else {
                 return ResponseEntity.badRequest().body(Map.of(
                         "success", false,
@@ -227,7 +254,7 @@ public class ProductController {
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of(
                     "success", false,
-                    "message", "Lỗi khi cập nhật rating: " + e.getMessage()));
+                    "message", "Lỗi khi thêm đánh giá: " + e.getMessage()));
         }
     }
 
