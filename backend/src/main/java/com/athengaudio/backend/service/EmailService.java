@@ -1,15 +1,21 @@
 package com.athengaudio.backend.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+
+import com.athengaudio.backend.model.ContactMessage;
 
 @Service
 public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String adminEmail;
 
     public void sendOTPEmail(String toEmail, String otpCode, String name) {
         SimpleMailMessage message = new SimpleMailMessage();
@@ -48,5 +54,19 @@ public class EmailService {
                 + "Trân trọng,\nĐội ngũ Athengudio");
 
         mailSender.send(message);
+    }
+
+    public void sendContactFormNotification(ContactMessage message) {
+        SimpleMailMessage mail = new SimpleMailMessage();
+        mail.setTo(adminEmail); // Gửi đến email admin
+        mail.setSubject("AthengAudio - Có tin nhắn liên hệ mới: " + message.getSubject());
+        mail.setText("Bạn nhận được một tin nhắn mới từ trang liên hệ:\n\n"
+                + "Từ: " + message.getName() + " (" + message.getEmail() + ")\n"
+                + "Chủ đề: " + message.getSubject() + "\n\n"
+                + "Nội dung:\n"
+                + "-----------------------------------\n"
+                + message.getMessage());
+
+        mailSender.send(mail);
     }
 }

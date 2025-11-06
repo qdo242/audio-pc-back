@@ -37,6 +37,7 @@ public class Order {
         private BigDecimal price;
         private Integer quantity;
         private BigDecimal subTotal;
+        private String image;
 
         // Constructors, Getters, Setters
         public OrderItem() {
@@ -92,6 +93,14 @@ public class Order {
 
         public void setSubTotal(BigDecimal subTotal) {
             this.subTotal = subTotal;
+        }
+
+        public String getImage() {
+            return image;
+        }
+
+        public void setImage(String image) {
+            this.image = image;
         }
     }
 
