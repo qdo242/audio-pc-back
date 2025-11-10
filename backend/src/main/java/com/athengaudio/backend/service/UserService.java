@@ -240,4 +240,18 @@ public class UserService {
         // Trả về false nếu không tìm thấy user hoặc sai mật khẩu cũ
         return false;
     }
+
+    /**
+     * Tìm ID của tài khoản admin đầu tiên
+     * @return String ID của admin
+     */
+    public String findAdminUserId() {
+        // Sử dụng hàm findByRole đã có sẵn trong UserRepository
+        List<User> admins = userRepository.findByRole("admin"); 
+        if (admins != null && !admins.isEmpty()) {
+            return admins.get(0).getId(); // Trả về ID của admin đầu tiên
+        }
+        // Fallback phòng trường hợp không tìm thấy admin (không nên xảy ra)
+        return "admin_fallback_id"; 
+    }
 }

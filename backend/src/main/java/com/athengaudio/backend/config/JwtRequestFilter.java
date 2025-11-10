@@ -54,7 +54,7 @@ public class JwtRequestFilter extends OncePerRequestFilter {
                 User user = userOpt.get();
                 // Tạo đối tượng xác thực (sử dụng email làm principal)
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                        user.getEmail(), null, null); // Chúng ta không cần authorities ở đây
+                        user.getId(), null, null); // Chúng ta không cần authorities ở đây
 
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 // Đặt thông tin xác thực vào SecurityContext
