@@ -56,7 +56,14 @@ public class ProductService {
                         product.setOriginalPrice(productDetails.getOriginalPrice());
                     if (productDetails.getStock() != null)
                         product.setStock(productDetails.getStock());
-                    if (productDetails.getImages() != null)
+                    
+                    if (productDetails.getImage() != null) // Cập nhật ảnh bìa
+                        product.setImage(productDetails.getImage());
+                        
+                    if (productDetails.getVideoUrl() != null) // THÊM DÒNG NÀY
+                        product.setVideoUrl(productDetails.getVideoUrl());
+
+                    if (productDetails.getImages() != null) // Cập nhật gallery
                         product.setImages(productDetails.getImages());
                     if (productDetails.getColors() != null)
                         product.setColors(productDetails.getColors());
@@ -82,7 +89,7 @@ public class ProductService {
                         product.setRating(productDetails.getRating());
                     if (productDetails.getReviewCount() != null)
                         product.setReviewCount(productDetails.getReviewCount());
-
+                    
                     product.setUpdatedAt(new Date());
                     return productRepository.save(product);
                 })

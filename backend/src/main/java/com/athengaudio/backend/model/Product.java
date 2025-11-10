@@ -22,7 +22,13 @@ public class Product {
     private Double price;
     private Double originalPrice; // Giá gốc để tính discount
     private Integer stock;
-    private List<String> images;
+    
+    // SỬA: Thêm videoUrl. 
+    // 'image' sẽ là ảnh bìa, 'images' CHỈ chứa gallery
+    private String image; // Ảnh bìa (Cover image)
+    private String videoUrl; // Link video
+    private List<String> images; // Gallery ảnh
+    
     private List<String> colors;
     private List<String> sizes;
 
