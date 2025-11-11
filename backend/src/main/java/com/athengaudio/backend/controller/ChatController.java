@@ -2,16 +2,22 @@ package com.athengaudio.backend.controller;
 
 import java.security.Principal;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.athengaudio.backend.model.ChatMessage;
-import com.athengaudio.backend.model.User; // <-- THÊM IMPORT NÀY
+import com.athengaudio.backend.model.User;
 import com.athengaudio.backend.service.ChatService;
 import com.athengaudio.backend.service.UserService;
 
@@ -24,67 +30,79 @@ public class ChatController {
     private ChatService chatService;
     @Autowired
     private UserService userService;
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
-    // Hàm helper (giữ nguyên)
-    private String getUserName(String userId) {
-        Optional<User> userOpt = userService.getUserById(userId);
-        return userOpt.map(User::getName).orElse("Người dùng");
-    }
-
-    /**
-     * Client gửi tin nhắn đến "/app/chat.sendMessage"
-     */
-    // === SỬA ĐỔI: Thêm Principal principal ===
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage, Principal principal) {
-        
-        String senderId = principal.getName(); // <-- Lấy ID người gửi TỪ KẾT NỐI
-        String adminId = userService.findAdminUserId();
-        
-        // Đảm bảo tin nhắn có thông tin chính xác
-        chatMessage.setFrom(senderId); 
-        chatMessage.setTo(adminId);
-        chatMessage.setFromName(getUserName(senderId)); // Lấy tên người gửi
+        try {
+            String senderId = (principal != null) ? principal.getName() : chatMessage.getFrom();
+            if (senderId == null) return;
 
-        ChatMessage savedMessage = chatService.saveMessage(chatMessage);
+            String adminId = userService.findAdminUserId();
+            boolean isAdmin = senderId.equals(adminId);
 
-        // Gửi cho Admin
-        simpMessagingTemplate.convertAndSendToUser(
-            savedMessage.getTo(), 
-            "/queue/reply", 
-            savedMessage
-        );
+            chatMessage.setFrom(senderId);
+            chatMessage.setFromName(getUserName(senderId));
 
-        // Gửi lại cho người gửi (chính là principal)
-        simpMessagingTemplate.convertAndSendToUser(
-            savedMessage.getFrom(), // Vẫn là senderId
-            "/queue/reply", 
-            savedMessage
-        );
+            if (!isAdmin) {
+                chatMessage.setTo(adminId);
+            }
+
+            ChatMessage savedMessage = chatService.saveMessage(chatMessage);
+
+            simpMessagingTemplate.convertAndSendToUser(savedMessage.getTo(), "/queue/reply", savedMessage);
+            simpMessagingTemplate.convertAndSendToUser(savedMessage.getFrom(), "/queue/reply", savedMessage);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    /**
-     * Client gửi yêu cầu lấy lịch sử đến "/app/chat.getHistory"
-     */
-    // === SỬA ĐỔI: Thay @Payload String userId BẰNG Principal principal ===
     @MessageMapping("/chat.getHistory")
-    public void getHistory(Principal principal) {
-        
-        String userId = principal.getName(); // <-- Lấy ID người dùng TỪ KẾT NỐI
-        String adminId = userService.findAdminUserId();
-        
-        List<ChatMessage> history = chatService.getChatHistory(userId, adminId);
+    public void getHistory(@Payload Map<String, String> payload, Principal principal) {
+        try {
+            String userId = (principal != null) ? principal.getName() : null;
+            if (userId == null) return;
 
-        // Thêm tên cho các tin nhắn cũ
-        history.forEach(message -> {
-            message.setFromName(getUserName(message.getFrom()));
-        });
+            String adminId = userService.findAdminUserId();
+            String targetId;
 
-        // Gửi lịch sử về cho user (chính là principal)
-        simpMessagingTemplate.convertAndSendToUser(
-            userId, 
-            "/queue/history", 
-            history
-        );
+            if (userId.equals(adminId)) {
+                targetId = payload.get("targetUserId");
+            } else {
+                targetId = adminId;
+            }
+
+            if (targetId != null) {
+                List<ChatMessage> history = chatService.getChatHistory(userId, targetId);
+                simpMessagingTemplate.convertAndSendToUser(userId, "/queue/history", history);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @GetMapping("/api/chat/conversations")
+    @ResponseBody
+    public ResponseEntity<?> getConversations() {
+        try {
+            List<String> senders = mongoTemplate.findDistinct(new Query(), "from", "chat_messages", String.class);
+            String adminId = userService.findAdminUserId();
+            
+            List<User> users = senders.stream()
+                .filter(id -> !id.equals(adminId))
+                .map(id -> userService.getUserById(id).orElse(null))
+                .filter(u -> u != null)
+                .collect(Collectors.toList());
+
+            return ResponseEntity.ok(Map.of("success", true, "users", users));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    private String getUserName(String userId) {
+        return userService.getUserById(userId).map(User::getName).orElse("Khách");
     }
 }
