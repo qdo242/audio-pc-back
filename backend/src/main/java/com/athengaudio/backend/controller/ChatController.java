@@ -42,17 +42,24 @@ public class ChatController {
             String adminId = userService.findAdminUserId();
             boolean isAdmin = senderId.equals(adminId);
 
+            // Chuẩn hóa thông tin
             chatMessage.setFrom(senderId);
             chatMessage.setFromName(getUserName(senderId));
 
+            // Nếu User gửi -> Đích đến là Admin
             if (!isAdmin) {
                 chatMessage.setTo(adminId);
             }
+            // Nếu Admin gửi -> chatMessage.getTo() đã có ID khách hàng
 
+            // Lưu DB
             ChatMessage savedMessage = chatService.saveMessage(chatMessage);
 
-            simpMessagingTemplate.convertAndSendToUser(savedMessage.getTo(), "/queue/reply", savedMessage);
-            simpMessagingTemplate.convertAndSendToUser(savedMessage.getFrom(), "/queue/reply", savedMessage);
+            // Gửi cho người nhận (Destination)
+            simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getTo(), savedMessage);
+            
+            // Gửi lại cho người gửi (Source) để hiển thị lên UI
+            simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getFrom(), savedMessage);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -62,21 +69,21 @@ public class ChatController {
     @MessageMapping("/chat.getHistory")
     public void getHistory(@Payload Map<String, String> payload, Principal principal) {
         try {
-            String userId = (principal != null) ? principal.getName() : null;
-            if (userId == null) return;
+            String currentUserId = (principal != null) ? principal.getName() : null;
+            if (currentUserId == null) return;
 
             String adminId = userService.findAdminUserId();
             String targetId;
 
-            if (userId.equals(adminId)) {
+            if (currentUserId.equals(adminId)) {
                 targetId = payload.get("targetUserId");
             } else {
                 targetId = adminId;
             }
 
             if (targetId != null) {
-                List<ChatMessage> history = chatService.getChatHistory(userId, targetId);
-                simpMessagingTemplate.convertAndSendToUser(userId, "/queue/history", history);
+                List<ChatMessage> history = chatService.getChatHistory(currentUserId, targetId);
+                simpMessagingTemplate.convertAndSend("/topic/user/" + currentUserId, history);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -87,13 +94,21 @@ public class ChatController {
     @ResponseBody
     public ResponseEntity<?> getConversations() {
         try {
-            List<String> senders = mongoTemplate.findDistinct(new Query(), "from", "chat_messages", String.class);
             String adminId = userService.findAdminUserId();
             
-            List<User> users = senders.stream()
+            List<String> senders = mongoTemplate.findDistinct(new Query(), "from", "chat_messages", String.class);
+            List<String> receivers = mongoTemplate.findDistinct(new Query(), "to", "chat_messages", String.class);
+            
+            senders.addAll(receivers);
+            List<String> userIds = senders.stream()
+                .distinct()
                 .filter(id -> !id.equals(adminId))
+                .collect(Collectors.toList());
+
+            List<User> users = userIds.stream()
                 .map(id -> userService.getUserById(id).orElse(null))
                 .filter(u -> u != null)
+                .peek(u -> u.setPassword(null))
                 .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of("success", true, "users", users));
@@ -103,6 +118,6 @@ public class ChatController {
     }
 
     private String getUserName(String userId) {
-        return userService.getUserById(userId).map(User::getName).orElse("Khách");
+        return userService.getUserById(userId).map(User::getName).orElse("Người dùng");
     }
 }

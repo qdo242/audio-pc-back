@@ -17,7 +17,7 @@ public class ChatCleanupService {
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void cleanupOldMessages() {
-        long cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000);
+        long cutoff = System.currentTimeMillis() - (10L * 24 * 60 * 60 * 1000);
         Query query = new Query(Criteria.where("timestamp").lt(cutoff));
         mongoTemplate.remove(query, "chat_messages");
     }
