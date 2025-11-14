@@ -1,101 +1,94 @@
 package com.athengaudio.backend.service;
 
+import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+
+import com.google.genai.Client;
+import com.google.genai.types.Content;
+import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.Part;
 
 @Service
 public class BotService {
 
-    // Lấy API Key từ file application.properties
     @Value("${gemini.api.key}")
     private String geminiApiKey;
 
-    // URL của Gemini 1.5 Flash (nhanh và ổn định cho chatbot)
-    private final String GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+    private Client client;
 
-    public String getBotResponse(String userMessage) {
+    // System Instruction định hình tính cách cho Bot
+    private static final String SYSTEM_INSTRUCTION = "Bạn là trợ lý ảo CSKH của 'Atheng Audio' - Cửa hàng chuyên cung cấp tai nghe và loa chính hãng.\n"
+            + "THÔNG TIN CỬA HÀNG:\n"
+            + "- Địa chỉ: 160 Trung Phụng, Đống Đa, Hà Nội.\n"
+            + "- Hotline: 1900 1234.\n"
+            + "- Website: athengaudio.com\n"
+            + "- Chính sách: Bảo hành chính hãng 12 tháng, lỗi 1 đổi 1 trong 30 ngày đầu.\n\n"
+            + "NHIỆM VỤ CỦA BẠN:\n"
+            + "1. Trả lời ngắn gọn, thân thiện, xưng hô 'mình' và gọi khách là 'bạn'.\n"
+            + "2. Chỉ hỗ trợ các vấn đề về sản phẩm âm thanh, tư vấn mua hàng, bảo hành, địa chỉ shop.\n"
+            + "3. Nếu khách hỏi vấn đề không liên quan (code, toán, thời tiết...), hãy khéo léo từ chối.\n"
+            + "4. Nếu khách muốn gặp người thật, hãy hướng dẫn họ chuyển sang chế độ 'Gặp nhân viên'.";
+
+    // Method chính để gọi AI
+    public String generateContent(String userMessage) {
         try {
-            RestTemplate restTemplate = new RestTemplate();
+            // Khởi tạo client nếu chưa có (Singleton scope)
+            if (this.client == null) {
+                this.client = Client.builder()
+                        .apiKey(geminiApiKey)
+                        .build();
+            }
 
-            // 1. Tạo Headers
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
+            // 1. Tạo nội dung System Instruction
+            Content systemContent = Content.builder()
+                    .parts(Collections.singletonList(
+                            Part.builder().text(SYSTEM_INSTRUCTION).build()))
+                    .build();
 
-            // 2. Tạo Body JSON
-            Map<String, Object> body = new HashMap<>();
+            // 2. Cấu hình (Config)
+            GenerateContentConfig config = GenerateContentConfig.builder()
+                    .systemInstruction(systemContent)
+                    .temperature(0.7f) // Độ sáng tạo
+                    .build();
 
-            // === SYSTEM INSTRUCTION (Huấn luyện Bot) ===
-            // Phần này định hình tính cách và kiến thức cho Bot
-            Map<String, Object> systemInstruction = new HashMap<>();
-            Map<String, Object> systemParts = new HashMap<>();
-            systemParts.put("text",
-                    "Bạn là trợ lý ảo CSKH của 'Atheng Audio' - Cửa hàng chuyên cung cấp tai nghe và loa chính hãng.\n"
-                            +
-                            "THÔNG TIN CỬA HÀNG:\n" +
-                            "- Địa chỉ: 160 Trung Phụng, Đống Đa, Hà Nội.\n" +
-                            "- Hotline: 1900 1234.\n" +
-                            "- Website: athengaudio.com\n" +
-                            "- Chính sách: Bảo hành chính hãng 12 tháng, lỗi 1 đổi 1 trong 30 ngày đầu.\n\n" +
-                            "NHIỆM VỤ CỦA BẠN:\n" +
-                            "1. Trả lời ngắn gọn, thân thiện, xưng hô 'mình' và gọi khách là 'bạn'.\n" +
-                            "2. Chỉ hỗ trợ các vấn đề về sản phẩm âm thanh, tư vấn mua hàng, bảo hành, địa chỉ shop.\n"
-                            +
-                            "3. Nếu khách hỏi vấn đề không liên quan (code, toán, thời tiết...), hãy khéo léo từ chối: 'Xin lỗi, mình chỉ là trợ lý ảo của Atheng Audio nên chỉ hỗ trợ được các vấn đề về thiết bị âm thanh thôi ạ.'\n"
-                            +
-                            "4. Nếu khách muốn gặp người thật, hãy hướng dẫn họ chuyển sang chế độ 'Gặp nhân viên' trên khung chat.");
-            systemInstruction.put("parts", List.of(systemParts));
-            body.put("system_instruction", systemInstruction);
+            // 3. Gọi API với model "gemini-2.5-flash"
+            GenerateContentResponse response = client.models.generateContent(
+                    "gemini-2.5-flash", // <--- CẬP NHẬT MODEL TẠI ĐÂY
+                    userMessage,
+                    config);
 
-            // === USER CONTENT (Câu hỏi của người dùng) ===
-            Map<String, Object> userContent = new HashMap<>();
-            userContent.put("role", "user");
-            Map<String, Object> userParts = new HashMap<>();
-            userParts.put("text", userMessage);
-            userContent.put("parts", List.of(userParts));
-
-            body.put("contents", List.of(userContent));
-
-            // 3. Gửi Request đến Google
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
-            String url = GEMINI_URL + "?key=" + geminiApiKey;
-
-            ResponseEntity<Map> response = restTemplate.postForEntity(url, entity, Map.class);
-
-            // 4. Xử lý kết quả trả về
-            return extractTextFromResponse(response.getBody());
+            return response.text();
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "Xin lỗi, hiện tại kết nối đến máy chủ AI đang bị gián đoạn. Bạn vui lòng thử lại sau hoặc liên hệ hotline 1900 1234 nhé!";
+            return "Xin lỗi, hiện tại hệ thống AI đang bận. Bạn vui lòng thử lại sau nhé! (" + e.getMessage() + ")";
         }
     }
 
-    // Hàm phụ để lấy text từ JSON phức tạp của Gemini
-    private String extractTextFromResponse(Map<String, Object> responseBody) {
-        try {
-            if (responseBody == null)
-                return "Không nhận được phản hồi.";
+    // --- Các method phụ hỗ trợ Controller ---
 
-            List<Map<String, Object>> candidates = (List<Map<String, Object>>) responseBody.get("candidates");
-            if (candidates != null && !candidates.isEmpty()) {
-                Map<String, Object> content = (Map<String, Object>) candidates.get(0).get("content");
-                List<Map<String, Object>> parts = (List<Map<String, Object>>) content.get("parts");
-                if (parts != null && !parts.isEmpty()) {
-                    return (String) parts.get(0).get("text");
-                }
-            }
-        } catch (Exception e) {
-            return "Lỗi khi đọc phản hồi từ AI.";
-        }
-        return "Bot không có câu trả lời.";
+    public String getBotResponse(String userMessage) {
+        return generateContent(userMessage);
+    }
+
+    public Map<String, Object> getServiceInfo() {
+        Map<String, Object> info = new HashMap<>();
+        info.put("service", "Google GenAI SDK");
+        info.put("model", "gemini-2.5-flash"); // Cập nhật thông tin model
+        info.put("status", "Online");
+        return info;
+    }
+
+    public long getCacheSize() {
+        return 0;
+    }
+
+    public void clearCache() {
+        // Mock method
     }
 }

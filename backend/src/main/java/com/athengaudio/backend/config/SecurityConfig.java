@@ -31,6 +31,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/orders/**").permitAll()
                         .requestMatchers("/api/carts/**").permitAll()
                         .requestMatchers("/api/contact/**").permitAll()
+                        .requestMatchers("/api/chat/send").permitAll()
+                        .requestMatchers("/api/chat/test-bot").permitAll() // Mở tất cả API ChatBot
                         .anyRequest().authenticated())
                 .oauth2Login(oauth2 -> oauth2
                         .defaultSuccessUrl("http://localhost:4200/oauth-success", true));
