@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.athengaudio.backend.model.ChatMessage;
 import com.athengaudio.backend.model.User;
+import com.athengaudio.backend.service.BotService;
 import com.athengaudio.backend.service.ChatService;
 import com.athengaudio.backend.service.UserService;
 
@@ -31,34 +32,58 @@ public class ChatController {
     @Autowired
     private UserService userService;
     @Autowired
+    private BotService botService;
+    @Autowired
     private MongoTemplate mongoTemplate;
+
+    public static final String BOT_ID = "BOT";
+    public static final String ADMIN_TARGET = "ADMIN";
 
     @MessageMapping("/chat.sendMessage")
     public void sendMessage(@Payload ChatMessage chatMessage, Principal principal) {
         try {
             String senderId = (principal != null) ? principal.getName() : chatMessage.getFrom();
-            if (senderId == null) return;
+            if (senderId == null)
+                return;
 
             String adminId = userService.findAdminUserId();
             boolean isAdmin = senderId.equals(adminId);
 
-            // Chuẩn hóa thông tin
             chatMessage.setFrom(senderId);
             chatMessage.setFromName(getUserName(senderId));
 
-            // Nếu User gửi -> Đích đến là Admin
-            if (!isAdmin) {
+            String destinationId = chatMessage.getTo();
+
+            // === CASE 1: CHAT VỚI BOT ===
+            if (BOT_ID.equals(destinationId)) {
+                ChatMessage savedUserMsg = chatService.saveMessage(chatMessage);
+                simpMessagingTemplate.convertAndSend("/topic/user/" + senderId, savedUserMsg);
+
+                // Gọi Gemini AI
+                String aiResponse = botService.getBotResponse(chatMessage.getContent());
+
+                ChatMessage botReply = new ChatMessage();
+                botReply.setFrom(BOT_ID);
+                botReply.setFromName("Atheng AI");
+                botReply.setTo(senderId);
+                botReply.setContent(aiResponse);
+
+                ChatMessage savedBotMsg = chatService.saveMessage(botReply);
+                simpMessagingTemplate.convertAndSend("/topic/user/" + senderId, savedBotMsg);
+                return;
+            }
+
+            // === CASE 2: CHAT VỚI ADMIN ===
+            // Nếu gửi tới "ADMIN" hoặc user thường gửi (mặc định là gửi admin) -> Đổi thành
+            // ID thật
+            if (ADMIN_TARGET.equals(destinationId) || !isAdmin) {
                 chatMessage.setTo(adminId);
             }
-            // Nếu Admin gửi -> chatMessage.getTo() đã có ID khách hàng
 
-            // Lưu DB
             ChatMessage savedMessage = chatService.saveMessage(chatMessage);
 
-            // Gửi cho người nhận (Destination)
+            // Gửi cho cả người nhận và người gửi (để đồng bộ)
             simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getTo(), savedMessage);
-            
-            // Gửi lại cho người gửi (Source) để hiển thị lên UI
             simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getFrom(), savedMessage);
 
         } catch (Exception e) {
@@ -70,21 +95,20 @@ public class ChatController {
     public void getHistory(@Payload Map<String, String> payload, Principal principal) {
         try {
             String currentUserId = (principal != null) ? principal.getName() : null;
-            if (currentUserId == null) return;
+            if (currentUserId == null)
+                return;
 
             String adminId = userService.findAdminUserId();
-            String targetId;
+            String targetId = payload.get("targetUserId");
 
-            if (currentUserId.equals(adminId)) {
-                targetId = payload.get("targetUserId");
-            } else {
+            // Nếu target là ADMIN hoặc rỗng -> Lấy lịch sử với Admin thật
+            if (targetId == null || targetId.isEmpty() || ADMIN_TARGET.equals(targetId)) {
                 targetId = adminId;
             }
 
-            if (targetId != null) {
-                List<ChatMessage> history = chatService.getChatHistory(currentUserId, targetId);
-                simpMessagingTemplate.convertAndSend("/topic/user/" + currentUserId, history);
-            }
+            List<ChatMessage> history = chatService.getChatHistory(currentUserId, targetId);
+            simpMessagingTemplate.convertAndSend("/topic/user/" + currentUserId, history);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -95,21 +119,20 @@ public class ChatController {
     public ResponseEntity<?> getConversations() {
         try {
             String adminId = userService.findAdminUserId();
-            
             List<String> senders = mongoTemplate.findDistinct(new Query(), "from", "chat_messages", String.class);
             List<String> receivers = mongoTemplate.findDistinct(new Query(), "to", "chat_messages", String.class);
-            
             senders.addAll(receivers);
+
             List<String> userIds = senders.stream()
-                .distinct()
-                .filter(id -> !id.equals(adminId))
-                .collect(Collectors.toList());
+                    .distinct()
+                    .filter(id -> !id.equals(adminId) && !id.equals(BOT_ID))
+                    .collect(Collectors.toList());
 
             List<User> users = userIds.stream()
-                .map(id -> userService.getUserById(id).orElse(null))
-                .filter(u -> u != null)
-                .peek(u -> u.setPassword(null))
-                .collect(Collectors.toList());
+                    .map(id -> userService.getUserById(id).orElse(null))
+                    .filter(u -> u != null)
+                    .peek(u -> u.setPassword(null))
+                    .collect(Collectors.toList());
 
             return ResponseEntity.ok(Map.of("success", true, "users", users));
         } catch (Exception e) {
