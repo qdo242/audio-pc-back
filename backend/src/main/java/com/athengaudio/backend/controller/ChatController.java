@@ -22,9 +22,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.athengaudio.backend.model.ChatMessage;
+import com.athengaudio.backend.model.Notification;
 import com.athengaudio.backend.model.User;
 import com.athengaudio.backend.service.BotService;
 import com.athengaudio.backend.service.ChatService;
+import com.athengaudio.backend.service.NotificationService;
 import com.athengaudio.backend.service.UserService;
 
 @Controller
@@ -40,6 +42,8 @@ public class ChatController {
     private BotService botService;
     @Autowired
     private MongoTemplate mongoTemplate;
+    @Autowired
+    private NotificationService notificationService;
 
     public static final String BOT_ID = "BOT";
     public static final String ADMIN_TARGET = "ADMIN";
@@ -97,6 +101,24 @@ public class ChatController {
             simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getTo(), savedMessage);
             simpMessagingTemplate.convertAndSend("/topic/user/" + savedMessage.getFrom(), savedMessage);
 
+            // THÊM: GỬI THÔNG BÁO CHUÔNG
+            if (isAdmin) {
+                // Admin gửi cho User
+                Notification notif = new Notification(
+                    savedMessage.getTo(), // Gửi cho user
+                    "Bạn có tin nhắn mới từ Hỗ trợ viên.",
+                    "/profile" // Link tới trang profile (nơi user có thể chat)
+                );
+                notificationService.sendNotificationToUser(notif);
+            } else {
+                // User gửi cho Admin
+                Notification notif = new Notification(
+                    adminId, // Gửi cho admin
+                    "Bạn có tin nhắn mới từ " + savedMessage.getFromName() + ".",
+                    "/admin" // Link tới trang admin (tab chat)
+                );
+                notificationService.sendNotificationToUser(notif); // Dùng sendToUser vì adminId đã là userId
+            }
         } catch (Exception e) {
             log.error("Error in sendMessage: {}", e.getMessage());
             e.printStackTrace();
