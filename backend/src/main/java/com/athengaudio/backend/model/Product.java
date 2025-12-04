@@ -38,6 +38,11 @@ public class Product {
     private String weight;
     private String compatibility;
     private String warranty;
+    
+    // THÊM: Các trường mới cho chi tiết sản phẩm (Hỗ trợ, Đổi trả, Loại)
+    private String supportPhone;
+    private Integer returnPolicyDays;
+    private String type; // Ví dụ: In-Ear, Over-Ear, TWS, etc.
 
     // Ratings & Reviews
     private Double rating;

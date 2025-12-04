@@ -47,7 +47,7 @@ public class UserService {
             user.setUpdatedAt(new Date());
 
             @SuppressWarnings("unused")
-            User savedUser = userRepository.save(user); // QUAN TRỌNG: phải save lại
+            User savedUser = userRepository.save(user);
 
             System.out.println("✅ OTP saved for user: " + email);
             System.out.println("OTP: " + otp);
@@ -243,15 +243,16 @@ public class UserService {
 
     /**
      * Tìm ID của tài khoản admin đầu tiên
+     * 
      * @return String ID của admin
      */
     public String findAdminUserId() {
         // Sử dụng hàm findByRole đã có sẵn trong UserRepository
-        List<User> admins = userRepository.findByRole("admin"); 
+        List<User> admins = userRepository.findByRole("admin");
         if (admins != null && !admins.isEmpty()) {
             return admins.get(0).getId(); // Trả về ID của admin đầu tiên
         }
         // Fallback phòng trường hợp không tìm thấy admin (không nên xảy ra)
-        return "admin_fallback_id"; 
+        return "admin_fallback_id";
     }
 }

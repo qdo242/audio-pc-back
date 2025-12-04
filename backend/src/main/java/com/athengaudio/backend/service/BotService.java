@@ -73,8 +73,8 @@ public class BotService {
             "   - Nếu khách hỏi sản phẩm không có trong dữ liệu: 'Dạ hiện mẫu đó AthengAudio chưa kinh doanh ạ'.\n" +
 
             "KIẾN THỨC CỐ ĐỊNH KHÁC:\n" +
-            "- Địa chỉ: 160 Trung Phụng, Đống Đa, HN.\n" +
-            "- Hotline: 1900 1234.\n";
+            "- Địa chỉ: 140 Trung Phụng, Đống Đa, HN.\n" +
+            "- Hotline: 0919 76 45 42.\n";
 
     public String generateContent(String userMessage) {
         try {
@@ -102,7 +102,7 @@ public class BotService {
                     .temperature(0.4f)
                     .build();
 
-            // 5. Gọi Gemini (Dùng model ổn định 1.5-flash)
+            // 5. Gọi Gemini (Dùng model ổn định 2.5-flash)
             GenerateContentResponse response = client.models.generateContent(
                     "gemini-2.5-flash",
                     userMessage,
@@ -170,7 +170,7 @@ public class BotService {
     public Map<String, Object> getServiceInfo() {
         Map<String, Object> info = new HashMap<>();
         info.put("service", "AthengAudio AI Context-Aware");
-        info.put("model", "gemini-1.5-flash");
+        info.put("model", "gemini-2.5-flash");
         return info;
     }
 

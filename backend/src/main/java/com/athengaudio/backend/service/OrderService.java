@@ -17,6 +17,10 @@ public class OrderService {
     private OrderRepository orderRepository;
     @Autowired
     private NotificationService notificationService;
+    
+    // Inject ProductService để trừ kho
+    @Autowired
+    private ProductService productService; 
 
     public List<Order> getAllOrders() {
         return orderRepository.findAll();
@@ -33,12 +37,18 @@ public class OrderService {
    public Order createOrder(Order order) {
         Order savedOrder = orderRepository.save(order);
         
-        // THÊM: Gửi thông báo cho Admin khi có đơn hàng mới
         if (savedOrder != null) {
+            // --- LOGIC MỚI: TRỪ TỒN KHO KHI CÓ ĐƠN MỚI ---
+            for (Order.OrderItem item : savedOrder.getItems()) {
+                productService.reduceStock(item.getProductId(), item.getQuantity());
+            }
+            // -----------------------------------------------
+
+            // Gửi thông báo cho Admin
             Notification notif = new Notification(
-                null, // UserId sẽ được set trong notifyAdmin
+                null, 
                 "Có đơn hàng mới #" + savedOrder.getId().substring(0, 6) + "!",
-                "/admin" // Link tới trang admin
+                "/admin" 
             );
             notificationService.notifyAdmin(notif);
         }
@@ -52,12 +62,12 @@ public class OrderService {
             order.setStatus(status);
             Order updatedOrder = orderRepository.save(order);
 
-            // THÊM: Gửi thông báo cho User khi trạng thái đơn hàng thay đổi
+            // Gửi thông báo cho User
             String message = "Đơn hàng #" + id.substring(0, 6) + " của bạn đã được " + getStatusText(status) + ".";
             Notification notif = new Notification(
-                order.getUserId(), // Gửi cho người dùng đã đặt hàng
+                order.getUserId(), 
                 message,
-                "/orders/" + id // Link tới chi tiết đơn hàng
+                "/orders/" + id 
             );
             notificationService.sendNotificationToUser(notif);
 

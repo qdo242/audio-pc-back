@@ -57,13 +57,13 @@ public class ProductService {
                     if (productDetails.getStock() != null)
                         product.setStock(productDetails.getStock());
                     
-                    if (productDetails.getImage() != null) // Cập nhật ảnh bìa
+                    if (productDetails.getImage() != null) 
                         product.setImage(productDetails.getImage());
                         
-                    if (productDetails.getVideoUrl() != null) // THÊM DÒNG NÀY
+                    if (productDetails.getVideoUrl() != null) 
                         product.setVideoUrl(productDetails.getVideoUrl());
 
-                    if (productDetails.getImages() != null) // Cập nhật gallery
+                    if (productDetails.getImages() != null) 
                         product.setImages(productDetails.getImages());
                     if (productDetails.getColors() != null)
                         product.setColors(productDetails.getColors());
@@ -134,34 +134,14 @@ public class ProductService {
                 .toList();
     }
 
-    // public Product updateRating(String productId, Double newRating) {
-    // return productRepository.findById(productId)
-    // .map(product -> {
-    // int currentReviewCount = product.getReviewCount();
-    // double currentRating = product.getRating();
-
-    // double newAverageRating = ((currentRating * currentReviewCount) + newRating)
-    // / (currentReviewCount + 1);
-
-    // product.setRating(newAverageRating);
-    // product.setReviewCount(currentReviewCount + 1);
-    // product.setUpdatedAt(new Date());
-
-    // return productRepository.save(product);
-    // })
-    // .orElse(null);
-    // }
-
     public Product addReviewToProduct(String productId, Review review) {
         return productRepository.findById(productId)
                 .map(product -> {
-                    // 1. Thêm review mới vào danh sách
                     if (review.getCreatedAt() == null) {
                         review.setCreatedAt(new Date());
                     }
-                    product.getReviews().add(0, review); // Thêm vào đầu danh sách
+                    product.getReviews().add(0, review); 
 
-                    // 2. Tính toán lại rating trung bình
                     int newReviewCount = product.getReviews().size();
                     double totalRating = product.getReviews().stream()
                             .mapToDouble(Review::getRating)
@@ -171,10 +151,9 @@ public class ProductService {
                     product.setReviewCount(newReviewCount);
                     product.setUpdatedAt(new Date());
 
-                    // 3. Lưu sản phẩm
                     return productRepository.save(product);
                 })
-                .orElse(null); // Trả về null nếu không tìm thấy sản phẩm
+                .orElse(null); 
     }
 
     public Product updateStock(String productId, Integer newStock) {
@@ -187,4 +166,17 @@ public class ProductService {
                 .orElse(null);
     }
 
+    // --- HÀM MỚI: TRỪ TỒN KHO ---
+    public boolean reduceStock(String productId, int quantity) {
+        return productRepository.findById(productId).map(product -> {
+            int currentStock = product.getStock() != null ? product.getStock() : 0;
+            if (currentStock >= quantity) {
+                product.setStock(currentStock - quantity);
+                product.setUpdatedAt(new Date());
+                productRepository.save(product); // Lưu vào DB
+                return true;
+            }
+            return false; // Không đủ hàng
+        }).orElse(false);
+    }
 }
